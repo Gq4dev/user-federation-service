@@ -11,5 +11,7 @@ data class KeycloakUserRep(
     val id: String? = null,
     val username: String? = null,
     val email: String? = null,
-    val emailVerified: Boolean? = null
+    val emailVerified: Boolean? = null,
+    val firstName: String? = null,
+    val lastName: String? = null
 )

@@ -11,7 +11,10 @@ class KeycloakUserService(
         val exists: Boolean,
         val userId: String? = null,
         val email: String? = null,
-        val emailVerified: Boolean? = null
+        val emailVerified: Boolean? = null,
+        val username: String? = null,
+        val firstName: String? = null,
+        val lastName: String? = null
     )
 
     data class VerificationResult(
@@ -21,19 +24,31 @@ class KeycloakUserService(
     )
 
     fun existsByEmail(email: String): UserExistence {
-        val u = kc.findUsersByEmail(email, exact = true).firstOrNull()
-        return if (u?.id != null) UserExistence(true, u.id, u.email, u.emailVerified)
+        val user = kc.findUsersByEmail(email, exact = true).firstOrNull()
+        return if (user?.id != null) UserExistence(
+            true,
+            user.id,
+            user.email,
+            user.emailVerified,
+            user.username,
+            user.firstName,
+            user.lastName
+        )
         else UserExistence(false)
     }
 
-    fun sendVerificationIfNeeded(email: String, clientId: String? = null, redirectUri: String? = null): VerificationResult {
-        val u = kc.findUsersByEmail(email, exact = true).firstOrNull()
+    fun sendVerificationIfNeeded(
+        email: String,
+        clientId: String? = null,
+        redirectUri: String? = null
+    ): VerificationResult {
+        val user = kc.findUsersByEmail(email, exact = true).firstOrNull()
             ?: return VerificationResult("not_found")
 
-        if (u.emailVerified == true) {
-            return VerificationResult(status = "already_verified", userId = u.id, email = u.email)
+        if (user.emailVerified == true) {
+            return VerificationResult(status = "already_verified", userId = user.id, email = user.email)
         }
-        kc.sendVerifyEmail(u.id!!, clientId, redirectUri)
-        return VerificationResult(status = "sent", userId = u.id, email = u.email)
+        kc.sendVerifyEmail(user.id!!, clientId, redirectUri)
+        return VerificationResult(status = "sent", userId = user.id, email = user.email)
     }
 }
