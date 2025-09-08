@@ -21,8 +21,8 @@ class KeycloakAdminClient(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private fun bearer(): String {
-        val url = "${baseUrl.trimEnd('/')}/realms/$adminRealm/protocol/openid-connect/token"
+    private fun bearerFor(realm: String): String {
+        val url = "${baseUrl.trimEnd('/')}/realms/$realm/protocol/openid-connect/token"
         val body = LinkedMultiValueMap<String, String>().apply {
             add("grant_type", "client_credentials")
             add("client_id", clientId)
@@ -44,7 +44,7 @@ class KeycloakAdminClient(
 
         val headers = HttpHeaders().apply {
             accept = listOf(MediaType.APPLICATION_JSON)
-            set(HttpHeaders.AUTHORIZATION, bearer())
+            set(HttpHeaders.AUTHORIZATION, bearerFor(realm))
         }
 
         return try {
@@ -64,7 +64,7 @@ class KeycloakAdminClient(
         val url = "${baseUrl.trimEnd('/')}/admin/realms/$realm/users"
         val headers = HttpHeaders().apply {
             contentType = MediaType.APPLICATION_JSON
-            set(HttpHeaders.AUTHORIZATION, bearer())
+            set(HttpHeaders.AUTHORIZATION, bearerFor(realm))
         }
         return try {
             val res = restTemplate.exchange(url, HttpMethod.POST, HttpEntity(req, headers), Void::class.java)
@@ -87,7 +87,7 @@ class KeycloakAdminClient(
         if (!redirectUri.isNullOrBlank()) builder.queryParam("redirect_uri", redirectUri)
         if (lifespanSec != null)         builder.queryParam("lifespan", lifespanSec)
 
-        val headers = HttpHeaders().apply { set(HttpHeaders.AUTHORIZATION, bearer()) }
+        val headers = HttpHeaders().apply { set(HttpHeaders.AUTHORIZATION, bearerFor(realm)) }
 
         try {
             restTemplate.exchange(builder.toUriString(), HttpMethod.PUT, HttpEntity<Void>(headers), Void::class.java)
