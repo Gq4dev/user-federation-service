@@ -1,7 +1,6 @@
 package com.paypertic.userfederationservice.infrastructure.adapter.out.client
 
-import com.paypertic.userfederationservice.infrastructure.adapter.out.client.dto.KeycloakTokenResponse
-import com.paypertic.userfederationservice.infrastructure.adapter.out.client.dto.KeycloakUserRep
+import com.paypertic.userfederationservice.infrastructure.adapter.out.client.dto.*
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.*
@@ -17,7 +16,6 @@ class KeycloakAdminClient(
     private val restTemplate: RestTemplate,
     @Value("\${app.keycloak.base-url}") private val baseUrl: String,
     @Value("\${app.keycloak.admin-realm}") private val adminRealm: String,
-    @Value("\${app.keycloak.target-realm}") private val targetRealm: String,
     @Value("\${app.keycloak.client-id}") private val clientId: String,
     @Value("\${app.keycloak.client-secret}") private val clientSecret: String
 ) {
@@ -36,9 +34,10 @@ class KeycloakAdminClient(
         return "Bearer $token"
     }
 
-    fun findUsersByEmail(email: String, exact: Boolean = true): List<KeycloakUserRep> {
+    /** Buscar usuarios por email en un realm */
+    fun findUsersByEmail(realm: String, email: String, exact: Boolean = true): List<KeycloakUserRep> {
         val url = UriComponentsBuilder
-            .fromHttpUrl("${baseUrl.trimEnd('/')}/admin/realms/$targetRealm/users")
+            .fromHttpUrl("${baseUrl.trimEnd('/')}/admin/realms/$realm/users")
             .queryParam("email", email)
             .queryParam("exact", exact)
             .toUriString()
@@ -52,22 +51,52 @@ class KeycloakAdminClient(
             val res = restTemplate.exchange(url, HttpMethod.GET, HttpEntity<Void>(headers), Array<KeycloakUserRep>::class.java)
             res.body?.toList() ?: emptyList()
         } catch (e: HttpStatusCodeException) {
-            val reason = e.statusText
-            log.error("Users error {} {} -> {}", e.statusCode.value(), reason, e.responseBodyAsString)
+            log.error("Users error {} {} -> {}", e.statusCode.value(), e.statusText, e.responseBodyAsString)
+            throw e
+        } catch (e: RestClientException) {
+            log.error("Users error: {}", e.message, e)
             throw e
         }
     }
 
-    fun sendVerifyEmail(userId: String, clientId: String? = null, redirectUri: String? = null, lifespanSec: Long? = null) {
-        val builder = UriComponentsBuilder
-            .fromHttpUrl("${baseUrl.trimEnd('/')}/admin/realms/$targetRealm/users/$userId/send-verify-email")
+    /** Crear usuario en un realm. Devuelve ID parseado del Location */
+    fun createUser(realm: String, req: KeycloakCreateUserRequest): String? {
+        val url = "${baseUrl.trimEnd('/')}/admin/realms/$realm/users"
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_JSON
+            set(HttpHeaders.AUTHORIZATION, bearer())
+        }
+        return try {
+            val res = restTemplate.exchange(url, HttpMethod.POST, HttpEntity(req, headers), Void::class.java)
+            val location = res.headers.location?.toString() ?: return null
+            location.substringAfterLast("/users/").ifBlank { null }
+        } catch (e: HttpStatusCodeException) {
+            log.error("Create user error {} {} -> {}", e.statusCode.value(), e.statusText, e.responseBodyAsString)
+            throw e
+        } catch (e: RestClientException) {
+            log.error("Create user error: {}", e.message, e)
+            throw e
+        }
+    }
 
+    /** Enviar verify-email en el realm indicado (PUT con snake_case) */
+    fun sendVerifyEmail(realm: String, userId: String, clientId: String? = null, redirectUri: String? = null, lifespanSec: Long? = null) {
+        val builder = UriComponentsBuilder
+            .fromHttpUrl("${baseUrl.trimEnd('/')}/admin/realms/$realm/users/$userId/send-verify-email")
         if (!clientId.isNullOrBlank())  builder.queryParam("client_id", clientId)
         if (!redirectUri.isNullOrBlank()) builder.queryParam("redirect_uri", redirectUri)
         if (lifespanSec != null)         builder.queryParam("lifespan", lifespanSec)
 
         val headers = HttpHeaders().apply { set(HttpHeaders.AUTHORIZATION, bearer()) }
 
-        restTemplate.exchange(builder.toUriString(), HttpMethod.PUT, HttpEntity<Void>(headers), Void::class.java)
+        try {
+            restTemplate.exchange(builder.toUriString(), HttpMethod.PUT, HttpEntity<Void>(headers), Void::class.java)
+        } catch (e: HttpStatusCodeException) {
+            log.error("send-verify-email error {} {} -> {}", e.statusCode.value(), e.statusText, e.responseBodyAsString)
+            throw e
+        } catch (e: RestClientException) {
+            log.error("send-verify-email error: {}", e.message, e)
+            throw e
+        }
     }
 }

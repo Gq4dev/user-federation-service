@@ -13,5 +13,16 @@ data class KeycloakUserRep(
     val email: String? = null,
     val emailVerified: Boolean? = null,
     val firstName: String? = null,
-    val lastName: String? = null
+    val lastName: String? = null,
+    val attributes: Map<String, List<String>>? = null
+)
+
+data class KeycloakCreateUserRequest(
+    val username: String,
+    val email: String,
+    val enabled: Boolean = true,
+    val emailVerified: Boolean = true,
+    val firstName: String? = null,
+    val lastName: String? = null,
+    val attributes: Map<String, List<String>>? = null
 )

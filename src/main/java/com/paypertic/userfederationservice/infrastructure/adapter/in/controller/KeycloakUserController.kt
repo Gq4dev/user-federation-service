@@ -24,4 +24,18 @@ class KeycloakUserController(
         @RequestParam(required = false) redirectUri: String?
     ): ResponseEntity<Any> =
         ResponseEntity.ok(service.sendVerificationIfNeeded(email, clientId, redirectUri))
+
+    @PutMapping("/migrate-to-cripto")
+    fun migrateToCripto(
+        @RequestParam @NotBlank @Email email: String
+    ): ResponseEntity<Any> {
+        val r = service.migrateToTargetIfVerified(email)
+        return when (r.status) {
+            "created"           -> ResponseEntity.status(201).body(r)  // creado en cripto
+            "already_in_target" -> ResponseEntity.ok(r)                // ya existía
+            "not_found_source"  -> ResponseEntity.status(404).body(r)  // no existe en pagadores
+            "not_verified"      -> ResponseEntity.status(409).body(r)  // existe pero sin email verificado
+            else                -> ResponseEntity.internalServerError().body(r)
+        }
+    }
 }

@@ -9,3 +9,12 @@ server:
 
 logging:
   config: classpath:log4j2-spring.xml
+
+app:
+  keycloak:
+    base-url: https://keycloak-4aay.onrender.com
+    admin-realm: mi-realm
+    source-realm: mi-realm
+    target-realm: criptoactivos
+    client-id: admin-cli-m2m
+    client-secret: tfN3WkpXC8eR7ghXX3FNKxftOhvpLOaT
